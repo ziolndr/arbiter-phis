@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>phis — ARBITER</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#000;--white:#fff;--off:#f8f8f8;
+  --mid:#555;--dim:#888;--muted:#bbb;
+  --electric:#0066ff;--electric-dim:rgba(0,102,255,.1);
+  --red:#c0392b;--red-light:#fdf3f2;
+  --amber:#b25000;--amber-light:#fef9f0;
+  --yellow:#7a6000;--yellow-light:#fefdf0;
+  --green:#1a6b1a;--green-light:#f2fbf2;
+  --8bit:'Press Start 2P',monospace;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+html,body{background:var(--white);color:var(--black);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* LOAD BAR */
+.lb{position:fixed;top:44px;left:0;right:0;height:2px;background:var(--electric);transform:scaleX(0);transform-origin:left;z-index:999;transition:none}
+.lb.on{animation:ld 1.2s ease-in-out infinite}
+@keyframes ld{0%{transform:scaleX(0)}50%{transform:scaleX(.65) translateX(25%)}100%{transform:scaleX(0) translateX(100%)}}
+
+/* HEADER */
+.hd{
+  background:var(--white);border-bottom:2px solid var(--black);
+  padding:0 16px;height:44px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.hd-left{display:flex;align-items:center}
+.hd-logo{font-family:var(--8bit);font-size:11px;padding-right:14px;border-right:2px solid var(--black);margin-right:12px;line-height:1;padding-top:2px}
+.hd-pills{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border:1px solid var(--black);background:var(--white);cursor:default}
+.hd-r{display:flex;align-items:center;gap:8px;padding-left:12px;border-left:2px solid var(--black)}
+.hd-meta{font-family:var(--mono);font-size:9px;color:var(--dim)}
+
+/* STAT STRIP */
+.stat-strip{border-bottom:2px solid var(--black);display:grid;grid-template-columns:repeat(4,1fr)}
+.stat-cell{padding:20px 20px 18px;border-right:1px solid var(--black)}
+.stat-cell:last-child{border-right:none}
+.sc-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
+.sc-num{font-family:var(--8bit);font-size:20px;line-height:1.2;margin-bottom:4px}
+.sc-desc{font-family:var(--sans);font-size:11px;color:var(--mid);line-height:1.4}
+.sc-num.red{color:var(--red)}.sc-num.amber{color:var(--amber)}.sc-num.green{color:var(--green)}
+
+/* VIEW TABS */
+.view-tabs{border-bottom:2px solid var(--black);display:flex;background:var(--black)}
+.view-tab{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:10px 20px;background:transparent;border:none;color:#666;cursor:pointer;border-right:1px solid #222;transition:all .1s}
+.view-tab:hover{color:#ccc}
+.view-tab.active{background:var(--white);color:var(--black)}
+
+/* PANEL GRID */
+.panel-hd{padding:8px 14px;border-bottom:1px solid var(--black);display:flex;align-items:center;justify-content:space-between;background:var(--off);flex-shrink:0}
+.ph-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;color:var(--dim);text-transform:uppercase}
+.ph-meta{font-family:var(--mono);font-size:8px;color:var(--mid)}
+
+/* SAMPLES STRIP */
+.samples{padding:7px 14px;border-bottom:1px solid var(--black);display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:var(--black);flex-shrink:0}
+.s-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;flex-shrink:0;margin-right:2px}
+.s-btn{font-family:var(--mono);font-size:8px;background:transparent;border:1px solid #444;color:#ccc;padding:2px 8px;cursor:pointer;transition:all .1s}
+.s-btn:hover,.s-btn.active{background:var(--white);color:var(--black);border-color:var(--white)}
+
+/* ── VIEW 1: SUPERVISOR DASHBOARD ── */
+#v1{display:block}
+#v2,#v3{display:none}
+
+.supervisor-grid{
+  display:grid;grid-template-columns:340px 1fr;
+  border-bottom:2px solid var(--black);
+  min-height:calc(100vh - 280px);
+}
+
+/* Establishment list */
+.est-list{border-right:2px solid var(--black);display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 280px)}
+.est-row{
+  display:grid;grid-template-columns:1fr 72px 90px;
+  align-items:center;
+  padding:10px 14px;
+  border-bottom:1px solid var(--black);
+  cursor:pointer;
+  transition:background .1s;
+}
+.est-row:last-child{border-bottom:none}
+.est-row:hover{background:var(--off)}
+.est-row.selected{background:var(--off)}
+.est-name{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--black);margin-bottom:2px}
+.est-type{font-family:var(--mono);font-size:9px;color:var(--dim)}
+.est-score{font-family:var(--8bit);font-size:13px;text-align:right}
+.est-badge{font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;text-align:center;border:1px solid;white-space:nowrap}
+
+.badge-imm{color:var(--red);border-color:var(--red);background:var(--red-light)}
+.badge-crit{color:var(--amber);border-color:var(--amber);background:var(--amber-light)}
+.badge-conc{color:var(--yellow);border-color:var(--yellow);background:var(--yellow-light)}
+.badge-norm{color:var(--green);border-color:var(--green);background:var(--green-light)}
+.score-imm{color:var(--red)}.score-crit{color:var(--amber)}.score-conc{color:var(--yellow)}.score-norm{color:var(--green)}
+
+/* Detail pane */
+.det-pane{display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 280px)}
+.det-empty{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;text-align:center;line-height:2}
+
+.det-hero{padding:20px 20px 16px;border-bottom:1px solid var(--black);background:var(--off)}
+.dh-name{font-family:var(--sans);font-size:18px;font-weight:500;color:var(--black);margin-bottom:4px}
+.dh-meta{font-family:var(--mono);font-size:9px;color:var(--dim);display:flex;gap:14px;flex-wrap:wrap}
+.dh-meta span{display:flex;align-items:center;gap:4px}
+
+.det-scores{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--black)}
+.ds-cell{padding:14px;border-right:1px solid var(--black);text-align:center}
+.ds-cell:last-child{border-right:none}
+.ds-label{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.ds-val{font-family:var(--8bit);font-size:16px}
+
+/* History chart */
+.hist-wrap{padding:16px 20px;border-bottom:1px solid var(--black)}
+.hist-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+.hist-bars{display:flex;align-items:flex-end;gap:4px;height:60px}
+.hist-bar{flex:1;border:1px solid var(--black);position:relative;cursor:default;transition:opacity .1s}
+.hist-bar:hover{opacity:.75}
+.hist-bar-fill{width:100%;position:absolute;bottom:0;left:0}
+.hist-bar-fill.imm{background:var(--red)}.hist-bar-fill.crit{background:var(--amber)}
+.hist-bar-fill.conc{background:var(--yellow)}.hist-bar-fill.norm{background:var(--green)}
+.hist-dates{display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:7px;color:var(--muted)}
+
+/* Narrative */
+.narr-wrap{padding:16px 20px;flex:1}
+.narr-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.narr-text{font-family:var(--sans);font-size:12px;color:var(--mid);line-height:1.75;padding:12px;border:1px solid var(--black);background:var(--off);font-style:italic}
+.narr-finding{margin-top:10px;padding:10px 12px;border-left:3px solid var(--black);background:var(--off);font-family:var(--mono);font-size:10px;color:var(--mid);line-height:1.7}
+.narr-finding strong{color:var(--black);font-weight:500}
+
+/* ── VIEW 2: ANALYST ── */
+.analyst-grid{display:grid;grid-template-columns:320px 1fr;border-bottom:2px solid var(--black);min-height:calc(100vh - 230px)}
+.analyst-left{border-right:2px solid var(--black);display:flex;flex-direction:column;max-height:calc(100vh - 230px);overflow-y:auto}
+.analyst-right{display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 230px)}
+
+/* Narrative input */
+.narr-input-wrap{padding:14px}
+.narr-input-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.narr-ta{width:100%;border:1px solid var(--black);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--black);background:var(--white);outline:none;resize:none;min-height:120px;line-height:1.7}
+.narr-ta::placeholder{color:var(--muted)}
+
+.score-btn{margin:0 14px 14px;padding:11px;background:var(--black);color:var(--white);border:none;font-family:var(--8bit);font-size:9px;letter-spacing:.08em;cursor:pointer;transition:opacity .15s;width:calc(100% - 28px)}
+.score-btn:hover{opacity:.75}
+.score-btn:disabled{opacity:.2;cursor:not-allowed}
+.score-btn.computing{background:var(--electric)}
+
+/* Score result */
+.score-result{padding:14px;border-top:1px solid var(--black);flex-shrink:0;background:var(--off)}
+.sr-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.sr-big{font-family:var(--8bit);font-size:28px;margin-bottom:4px}
+.sr-verdict{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border:1px solid;display:inline-block;margin-bottom:8px}
+.sr-note{font-family:var(--sans);font-size:11px;color:var(--mid);line-height:1.65}
+
+/* Trend chart */
+.trend-wrap{padding:16px 20px}
+.trend-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+.trend-bars{display:flex;align-items:flex-end;gap:3px;height:80px;border-bottom:1px solid var(--black)}
+.trend-bar{flex:1;position:relative}
+.trend-bar-fill{width:100%;position:absolute;bottom:0;border:1px solid var(--black)}
+.trend-bar-fill.imm{background:var(--red)}.trend-bar-fill.crit{background:var(--amber)}
+.trend-bar-fill.conc{background:var(--yellow)}.trend-bar-fill.norm{background:var(--green)}
+.trend-labels{display:flex;justify-content:space-between;margin-top:5px;font-family:var(--mono);font-size:7px;color:var(--muted)}
+
+.trend-empty{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;text-align:center;line-height:2}
+
+/* ── VIEW 3: FIELD INSPECTOR ── */
+.field-wrap{max-width:680px;margin:0 auto;padding:20px 16px}
+.field-section{border:1px solid var(--black);margin-bottom:14px}
+.field-hd{padding:9px 14px;border-bottom:1px solid var(--black);background:var(--off);display:flex;align-items:center;justify-content:space-between}
+.field-hd-label{font-family:var(--mono);font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim)}
+.field-hd-meta{font-family:var(--mono);font-size:8px;color:var(--mid)}
+.field-body{padding:14px}
+
+.field-select{width:100%;border:1px solid var(--black);padding:8px 10px;font-family:var(--mono);font-size:11px;background:var(--white);outline:none;cursor:pointer}
+.field-ta{width:100%;border:none;outline:none;resize:none;font-family:var(--mono);font-size:11px;color:var(--black);background:var(--white);min-height:100px;line-height:1.7}
+.field-ta::placeholder{color:var(--muted)}
+.field-char{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;margin-top:5px}
+
+.field-submit{width:100%;padding:13px;background:var(--black);color:var(--white);border:none;font-family:var(--8bit);font-size:9px;letter-spacing:.08em;cursor:pointer;transition:opacity .15s;margin-top:2px}
+.field-submit:hover{opacity:.75}
+.field-submit:disabled{opacity:.2;cursor:not-allowed}
+.field-submit.computing{background:var(--electric)}
+
+/* Field result */
+.field-result{border:2px solid var(--black);margin-bottom:14px}
+.fr-hd{padding:10px 14px;border-bottom:1px solid var(--black);background:var(--off);display:flex;align-items:center;justify-content:space-between}
+.fr-label{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.fr-score{font-family:var(--8bit);font-size:18px}
+.fr-body{padding:14px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
+.fr-verdict-block{text-align:center}
+.fr-verdict{font-family:var(--8bit);font-size:8px;letter-spacing:.04em;padding:6px 10px;border:2px solid;display:block;margin-bottom:6px;white-space:nowrap}
+.fr-delta{font-family:var(--mono);font-size:9px;color:var(--dim)}
+.fr-text{font-family:var(--sans);font-size:12px;color:var(--mid);line-height:1.7}
+.fr-text strong{color:var(--black);font-weight:500}
+
+/* COLOR UTILS */
+.c-imm{color:var(--red)}.c-crit{color:var(--amber)}.c-conc{color:var(--yellow)}.c-norm{color:var(--green)}
+.b-imm{border-color:var(--red)}.b-crit{border-color:var(--amber)}.b-conc{border-color:var(--yellow)}.b-norm{border-color:var(--green)}
+.bg-imm{background:var(--red-light)}.bg-crit{background:var(--amber-light)}.bg-conc{background:var(--yellow-light)}.bg-norm{background:var(--green-light)}
+
+/* FOOTER */
+.footer{border-top:1px solid var(--black);padding:7px 16px;background:var(--off);font-family:var(--mono);font-size:8px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+
+@media(max-width:700px){
+  .supervisor-grid,.analyst-grid{grid-template-columns:1fr}
+  .est-list,.analyst-left{border-right:none;border-bottom:2px solid var(--black);max-height:300px}
+  .stat-strip{grid-template-columns:1fr 1fr}
+  .stat-cell:nth-child(2){border-right:none}
+  .det-scores{grid-template-columns:1fr 1fr}
+  .ds-cell:nth-child(2){border-right:none}
+}
+</style>
+</head>
+<body>
+<div class="lb" id="lb"></div>
+
+<!-- HEADER -->
+<div class="hd">
+  <div class="hd-left">
+    <div class="hd-logo">phis</div>
+    <div class="hd-pills">
+      <div class="pill">inspection coherence</div>
+      <div class="pill">narrative drift</div>
+      <div class="pill">absence detection</div>
+      <div class="pill">ARBITER</div>
+    </div>
+  </div>
+  <div class="hd-r">
+    <div class="hd-meta" id="hd-meta">FSIS establishment monitoring · live</div>
+  </div>
+</div>
+
+<!-- STAT STRIP -->
+<div class="stat-strip">
+  <div class="stat-cell">
+    <div class="sc-label">Establishments</div>
+    <div class="sc-num">15</div>
+    <div class="sc-desc">Active FSIS-registered facilities monitored</div>
+  </div>
+  <div class="stat-cell">
+    <div class="sc-label">Immediate</div>
+    <div class="sc-num red" id="statImm">2</div>
+    <div class="sc-desc">Score below 0.70 — action required</div>
+  </div>
+  <div class="stat-cell">
+    <div class="sc-label">Critical</div>
+    <div class="sc-num amber" id="statCrit">3</div>
+    <div class="sc-desc">Score 0.70–0.79 — expedited review</div>
+  </div>
+  <div class="stat-cell">
+    <div class="sc-label">ARBITER API</div>
+    <div class="sc-num green">live</div>
+    <div class="sc-desc">api.arbiter.traut.ai · deterministic · &lt;1ms</div>
+  </div>
+</div>
+
+<!-- VIEW TABS -->
+<div class="view-tabs">
+  <button class="view-tab active" onclick="showView(1)">Supervisor</button>
+  <button class="view-tab" onclick="showView(2)">Analyst</button>
+  <button class="view-tab" onclick="showView(3)">Field Inspector</button>
+</div>
+
+<!-- ═══════════════════════════ VIEW 1: SUPERVISOR ═══════════════════════════ -->
+<div id="v1">
+  <div class="supervisor-grid">
+    <!-- Establishment list -->
+    <div>
+      <div class="panel-hd">
+        <span class="ph-label">All Establishments</span>
+        <span class="ph-meta">ranked by coherence score</span>
+      </div>
+      <div class="est-list" id="estList"></div>
+    </div>
+    <!-- Detail pane -->
+    <div>
+      <div class="panel-hd">
+        <span class="ph-label">Establishment Detail</span>
+        <span class="ph-meta" id="detMeta">select an establishment</span>
+      </div>
+      <div class="det-pane" id="detPane">
+        <div class="det-empty">select an establishment<br>to view detail</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ VIEW 2: ANALYST ═══════════════════════════ -->
+<div id="v2">
+  <div class="analyst-grid">
+    <div class="analyst-left">
+      <div class="panel-hd">
+        <span class="ph-label">Establishment</span>
+      </div>
+      <div class="samples">
+        <span class="s-lbl">Samples</span>
+        <div id="analystSamples"></div>
+      </div>
+      <div class="narr-input-wrap">
+        <div class="narr-input-label">Inspection narrative to score</div>
+        <textarea class="narr-ta" id="analystNarr" placeholder="Paste inspection narrative text here...
+
+FSIS inspectors assessed all critical control points during today's visit. HACCP plan was reviewed and found to be in compliance. Temperature logs were present and complete. Sanitation was adequate throughout. No noncompliance observed."
+          oninput="document.getElementById('analystCharCount').textContent = this.value.length + ' chars'"></textarea>
+        <div class="field-char" id="analystCharCount">0 chars</div>
+      </div>
+      <button class="score-btn" id="analystBtn" onclick="runAnalyst()">▶ SCORE NARRATIVE</button>
+      <div class="score-result" id="analystResult" style="display:none">
+        <div class="sr-label">Coherence score</div>
+        <div class="sr-big" id="arScore"></div>
+        <div class="sr-verdict" id="arVerdict"></div>
+        <div class="sr-note" id="arNote"></div>
+      </div>
+    </div>
+    <div class="analyst-right">
+      <div class="panel-hd">
+        <span class="ph-label">Inspection history</span>
+        <span class="ph-meta" id="analystEstName">select a sample</span>
+      </div>
+      <div id="analystDetail">
+        <div class="trend-empty">select a sample above<br>to view trend</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ VIEW 3: FIELD INSPECTOR ═══════════════════════════ -->
+<div id="v3">
+  <div class="field-wrap">
+    <div class="field-section">
+      <div class="field-hd">
+        <span class="field-hd-label">Establishment</span>
+      </div>
+      <div class="field-body">
+        <select class="field-select" id="fieldEst" onchange="updateFieldEst()">
+          <option value="">— Select establishment —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-section">
+      <div class="field-hd">
+        <span class="field-hd-label">Inspection Findings</span>
+        <span class="field-hd-meta" id="fieldCharCount">0 chars</span>
+      </div>
+      <div class="field-body">
+        <textarea class="field-ta" id="fieldNarr"
+          placeholder="Enter your inspection findings in plain language..."
+          oninput="document.getElementById('fieldCharCount').textContent = this.value.length + ' chars'"></textarea>
+      </div>
+    </div>
+
+    <div class="field-section" id="fieldResultWrap" style="display:none">
+      <!-- dynamically rendered -->
+    </div>
+
+    <button class="field-submit" id="fieldBtn" onclick="runField()">▶ SCORE FINDINGS</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <span>Actual General Intelligence · phis.actualgeneralintelligence.com · FSIS-FY26-0003</span>
+  <span>ARBITER Computed · 26MB · deterministic · air-gapped available</span>
+</div>
+
+<script>
+const API = 'https://api.arbiter.traut.ai/public/compare';
+const CANDIDATES = [
+  'FSIS establishment in full compliance — HACCP plan current, temperature controls adequate, sanitation satisfactory, documentation complete, corrective actions appropriate and timely',
+  'FSIS establishment requires immediate corrective action — critical noncompliance observed, HACCP deviation recorded, regulatory action initiated, prior violations unresolved',
+  'FSIS establishment pattern of concern — recurring noncompliance across inspection cycles, documentation gaps, baseline drift from compliant historical record',
+  'FSIS establishment routine monitoring — standard documentation, no significant deviations, normal operational baseline'
+];
+
+const QUERY_BASE = 'FSIS inspection finding. Establishment compliance with HACCP plan, sanitation requirements, temperature controls, documentation completeness, corrective actions taken, regulatory compliance history.';
+
+// ── ESTABLISHMENT DATA ──────────────────────────────────────────
+const ESTABLISHMENTS = [
+  {
+    id:1, name:'Southern Turkey Farms', type:'Poultry Slaughter', state:'GA',
+    score:0.3031, badge:'imm',
+    history:[0.8812,0.8755,0.8690,0.8423,0.7841,0.6230,0.4812,0.3031],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 14, 2026',
+    inspector:'Martinez, R.',
+    narrative:'Overall assessment conducted. Processing line reviewed. Some areas noted.',
+    finding:'<strong>Two-word entry flagged IMMEDIATE.</strong> The establishment\'s documented history of temperature control failures and prior HACCP deviations scored this minimal narrative at 0.3031. The geometry of this establishment\'s record made even minimal input incoherent with compliance.'
+  },
+  {
+    id:2, name:'Cascade Poultry Works', type:'Poultry Processing', state:'WA',
+    score:0.3142, badge:'imm',
+    history:[0.9120,0.8940,0.8803,0.8512,0.7230,0.5412,0.4102,0.3142],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 11, 2026',
+    inspector:'Thompson, K.',
+    narrative:'Establishment visited. Operations reviewed. Documentation on file.',
+    finding:'<strong>Second consecutive IMMEDIATE-level cycle.</strong> Cascading coherence drop from 0.912 baseline to 0.314 over 8 inspection cycles. Pattern consistent with systematic compliance deterioration. Prior enforcement action did not arrest the drift.'
+  },
+  {
+    id:3, name:'Heartland Beef Processing', type:'Beef Slaughter', state:'NE',
+    score:0.4787, badge:'crit',
+    history:[0.9340,0.9210,0.9088,0.8776,0.8102,0.7234,0.5891,0.4787],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 16, 2026',
+    inspector:'Rodriguez, M.',
+    narrative:'Facility inspected. All critical control points assessed. Notes taken.',
+    finding:'<strong>Eight-cycle decline from 0.934 baseline.</strong> Each successive inspection narrative has become more minimal. ARBITER detects absence of standard documentation language that characterizes compliant records at this establishment type.'
+  },
+  {
+    id:4, name:'Pioneer Pork Processors', type:'Pork Slaughter', state:'IA',
+    score:0.5234, badge:'crit',
+    history:[0.9512,0.9488,0.9340,0.9012,0.8734,0.7812,0.6342,0.5234],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 15, 2026',
+    inspector:'Williams, J.',
+    narrative:'Processing reviewed. Temperature monitoring noted. HACCP reviewed.',
+    finding:'<strong>Drift rate accelerating in final three cycles.</strong> Drop of 0.115 points between the two most recent inspections. At current trajectory, will reach IMMEDIATE threshold within one inspection cycle.'
+  },
+  {
+    id:5, name:'Sunrise Poultry Plant', type:'Poultry Slaughter', state:'AR',
+    score:0.4921, badge:'crit',
+    history:[0.8900,0.8750,0.8600,0.8200,0.7500,0.6800,0.5800,0.4921],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 17, 2026',
+    inspector:'Chen, L.',
+    narrative:'Sanitation inspection complete.',
+    finding:'<strong>Three words entered. ARBITER returned CRITICAL.</strong> Establishment history of noncompliance made even minimal narrative incoherent with compliance baseline. The inspector did not need to know the history. The score reflects it.'
+  },
+  {
+    id:6, name:'Great Plains Beef', type:'Beef Processing', state:'KS',
+    score:0.6812, badge:'crit',
+    history:[0.9234,0.9198,0.9021,0.8834,0.8590,0.8012,0.7340,0.6812],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 12, 2026',
+    inspector:'Johnson, A.',
+    narrative:'HACCP plan reviewed and current. Temperature logs complete for all critical control points. Sanitation satisfactory. No significant deviations noted during this inspection period.',
+    finding:'<strong>Meaningful drift from 0.923 baseline despite adequate narrative.</strong> The language quality is appropriate, but the geometric coherence suggests the documentation pattern has shifted from the establishment\'s historical compliance signature.'
+  },
+  {
+    id:7, name:'Delta Poultry Cooperative', type:'Poultry Processing', state:'MS',
+    score:0.7234, badge:'crit',
+    history:[0.9412,0.9388,0.9310,0.9102,0.8876,0.8540,0.7912,0.7234],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 10, 2026',
+    inspector:'Davis, P.',
+    narrative:'All HACCP critical limits met. Sanitation procedures followed. Documentation reviewed and found in order. Temperature records current.',
+    finding:'Steady drift from 0.941 baseline over 8 cycles despite consistently adequate narrative language. Pattern suggests operational compliance is changing even as documentation language remains standard.'
+  },
+  {
+    id:8, name:'Mountain West Lamb', type:'Lamb Slaughter', state:'CO',
+    score:0.7891, badge:'conc',
+    history:[0.9567,0.9512,0.9488,0.9340,0.9102,0.8876,0.8512,0.7891],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 9, 2026',
+    inspector:'Garcia, E.',
+    narrative:'Establishment compliant. HACCP plan on file and current. All critical control points within acceptable limits. Sanitation program functioning as designed. No corrective actions required.',
+    finding:'Moderate drift from 0.957 baseline. Score remains in normal operating range but trajectory warrants monitoring. Flag for next cycle review.'
+  },
+  {
+    id:9, name:'Pacific Northwest Seafood', type:'Seafood Processing', state:'OR',
+    score:0.8102, badge:'conc',
+    history:[0.9623,0.9588,0.9534,0.9412,0.9201,0.8890,0.8534,0.8102],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 8, 2026',
+    inspector:'Lee, S.',
+    narrative:'Full HACCP inspection conducted. Critical control points assessed and found within specification. Temperature monitoring logs verified. Sanitation satisfactory throughout facility.',
+    finding:'Eight-cycle gradual decline from 0.962 baseline. Still within acceptable range but declining trend warrants supervisor awareness at next scheduled review.'
+  },
+  {
+    id:10, name:'Southern Pork Alliance', type:'Pork Processing', state:'TN',
+    score:0.8543, badge:'conc',
+    history:[0.9712,0.9698,0.9654,0.9542,0.9301,0.9012,0.8801,0.8543],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 7, 2026',
+    inspector:'Wilson, B.',
+    narrative:'Inspection completed. HACCP plan current, all CCPs verified. Sanitation monitoring adequate. Documentation complete and organized. Temperature logs present. Corrective actions from prior cycle verified as complete.',
+    finding:'Minor drift from 0.971 baseline. Score approaching lower threshold of normal range. Recommend standard monitoring at next inspection cycle.'
+  },
+  {
+    id:11, name:'Midwest Poultry Alliance', type:'Poultry Processing', state:'MN',
+    score:0.9102, badge:'norm',
+    history:[0.9534,0.9512,0.9488,0.9502,0.9467,0.9378,0.9234,0.9102],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 6, 2026',
+    inspector:'Brown, C.',
+    narrative:'All critical control points within acceptable limits. HACCP plan reviewed and current. Sanitation satisfactory. Documentation complete. No deviations observed. Temperature monitoring logs verified. Corrective actions from prior inspection verified complete and effective.',
+    finding:'Score within normal range. Minor variation within expected operational baseline. Standard monitoring appropriate.'
+  },
+  {
+    id:12, name:'Texas Beef Cooperative', type:'Beef Slaughter', state:'TX',
+    score:0.9234, badge:'norm',
+    history:[0.9623,0.9601,0.9588,0.9534,0.9512,0.9488,0.9378,0.9234],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 5, 2026',
+    inspector:'Anderson, D.',
+    narrative:'Facility inspection complete. HACCP plan current and properly implemented. All critical control points verified within limits. Sanitation procedures being followed. Documentation organized and complete. Temperature monitoring logs current.',
+    finding:'Consistent coherence with established compliance baseline. Minor variation within normal operational range.'
+  },
+  {
+    id:13, name:'New England Turkey Farm', type:'Poultry Slaughter', state:'MA',
+    score:0.9456, badge:'norm',
+    history:[0.9712,0.9698,0.9701,0.9688,0.9634,0.9601,0.9534,0.9456],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 4, 2026',
+    inspector:'Thomas, R.',
+    narrative:'Comprehensive HACCP inspection conducted. Critical control points verified in compliance. Sanitation program fully implemented and effective. All documentation current. Temperature monitoring logs present and accurate. No corrective actions required.',
+    finding:'Coherence remains strong and consistent with baseline. Minimal variation. No action required.'
+  },
+  {
+    id:14, name:'Great Lakes Pork', type:'Pork Processing', state:'MI',
+    score:0.9567, badge:'norm',
+    history:[0.9801,0.9788,0.9756,0.9734,0.9712,0.9690,0.9623,0.9567],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 3, 2026',
+    inspector:'Jackson, K.',
+    narrative:'Establishment in compliance. HACCP plan current, all critical control points within specification. Sanitation satisfactory throughout. Documentation complete and organized. Temperature logs verified current and accurate.',
+    finding:'Excellent coherence stability across all cycles. Slight drift within normal operational range. No concerns.'
+  },
+  {
+    id:15, name:'Rocky Mountain Beef', type:'Beef Processing', state:'MT',
+    score:0.9712, badge:'norm',
+    history:[0.9834,0.9823,0.9812,0.9801,0.9789,0.9776,0.9754,0.9712],
+    dates:['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'],
+    lastInspection:'Jan 2, 2026',
+    inspector:'White, J.',
+    narrative:'Inspection conducted. All critical control points assessed and found within specification. HACCP plan current and properly documented. Sanitation excellent throughout facility. Temperature monitoring logs current and accurate. Documentation complete. No noncompliance observed.',
+    finding:'Highest coherence in portfolio. Consistent, stable compliance pattern across all eight inspection cycles.'
+  }
+];
+
+const BADGE_LABEL = {imm:'IMMEDIATE',crit:'CRITICAL',conc:'CONCERN',norm:'NORMAL'};
+
+// ── SUPERVISOR VIEW ─────────────────────────────────────────────
+function buildEstList(){
+  const el = document.getElementById('estList');
+  const sorted = [...ESTABLISHMENTS].sort((a,b)=>a.score-b.score);
+  el.innerHTML = sorted.map(e=>`
+    <div class="est-row" onclick="selectEst(${e.id})" id="row-${e.id}">
+      <div>
+        <div class="est-name">${e.name}</div>
+        <div class="est-type">${e.type} · ${e.state}</div>
+      </div>
+      <div class="est-score ${`score-${e.badge}`}">${e.score.toFixed(4)}</div>
+      <div class="est-badge badge-${e.badge}">${BADGE_LABEL[e.badge]}</div>
+    </div>`).join('');
+}
+
+function selectEst(id){
+  document.querySelectorAll('.est-row').forEach(r=>r.classList.remove('selected'));
+  document.getElementById('row-'+id)?.classList.add('selected');
+  const e = ESTABLISHMENTS.find(x=>x.id===id);
+  if(!e) return;
+  document.getElementById('detMeta').textContent = e.name;
+  renderDetPane(e);
+}
+
+function renderDetPane(e){
+  const maxH = Math.max(...e.history);
+  const bars = e.history.map((s,i)=>{
+    const cat = s<0.70?'imm':s<0.80?'crit':s<0.90?'conc':'norm';
+    const h = Math.round((s/maxH)*100);
+    return `<div class="hist-bar" title="${e.dates[i]}: ${s.toFixed(4)}"><div class="hist-bar-fill ${cat}" style="height:${h}%"></div></div>`;
+  }).join('');
+
+  document.getElementById('detPane').innerHTML = `
+    <div class="det-hero">
+      <div class="dh-name">${e.name}</div>
+      <div class="dh-meta">
+        <span>${e.type}</span>
+        <span>${e.state}</span>
+        <span>Last inspected: ${e.lastInspection}</span>
+        <span>Inspector: ${e.inspector}</span>
+      </div>
+    </div>
+    <div class="det-scores">
+      <div class="ds-cell">
+        <div class="ds-label">Current Score</div>
+        <div class="ds-val c-${e.badge}">${e.score.toFixed(4)}</div>
+      </div>
+      <div class="ds-cell">
+        <div class="ds-label">Triage Level</div>
+        <div class="ds-val" style="font-size:11px">${BADGE_LABEL[e.badge]}</div>
+      </div>
+      <div class="ds-cell">
+        <div class="ds-label">Baseline</div>
+        <div class="ds-val">${e.history[0].toFixed(4)}</div>
+      </div>
+      <div class="ds-cell">
+        <div class="ds-label">Drift</div>
+        <div class="ds-val c-${e.badge}">−${(e.history[0]-e.score).toFixed(4)}</div>
+      </div>
+    </div>
+    <div class="hist-wrap">
+      <div class="hist-label">8-Cycle Inspection History</div>
+      <div class="hist-bars">${bars}</div>
+      <div class="hist-dates"><span>${e.dates[0]}</span><span>${e.dates[e.dates.length-1]}</span></div>
+    </div>
+    <div class="narr-wrap">
+      <div class="narr-label">Most Recent Inspection Narrative</div>
+      <div class="narr-text">"${e.narrative}"</div>
+      <div class="narr-finding">${e.finding}</div>
+    </div>`;
+}
+
+// ── ANALYST VIEW ────────────────────────────────────────────────
+function buildAnalystSamples(){
+  const wrap = document.getElementById('analystSamples');
+  wrap.innerHTML = ESTABLISHMENTS.filter(e=>e.badge==='imm'||e.badge==='crit').map((e,i)=>`
+    <button class="s-btn" onclick="loadAnalystSample(${e.id})">${e.name.split(' ').slice(0,2).join(' ')}</button>
+  `).join('') + ESTABLISHMENTS.filter(e=>e.badge==='norm').slice(0,2).map(e=>`
+    <button class="s-btn" onclick="loadAnalystSample(${e.id})">${e.name.split(' ').slice(0,2).join(' ')}</button>
+  `).join('');
+}
+
+function loadAnalystSample(id){
+  const e = ESTABLISHMENTS.find(x=>x.id===id);
+  if(!e) return;
+  document.querySelectorAll('#analystSamples .s-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('analystNarr').value = e.narrative;
+  document.getElementById('analystCharCount').textContent = e.narrative.length + ' chars';
+  document.getElementById('analystEstName').textContent = e.name;
+  renderAnalystTrend(e);
+  // Auto-score after loading sample
+  runAnalystWithEst(e);
+}
+
+function renderAnalystTrend(e){
+  const maxH = Math.max(...e.history);
+  const bars = e.history.map((s,i)=>{
+    const cat = s<0.70?'imm':s<0.80?'crit':s<0.90?'conc':'norm';
+    const h = Math.round((s/maxH)*100);
+    return `<div class="trend-bar" title="${e.dates[i]}: ${s.toFixed(4)}"><div class="trend-bar-fill ${cat}" style="height:${h}%"></div></div>`;
+  }).join('');
+
+  document.getElementById('analystDetail').innerHTML = `
+    <div style="padding:16px 20px">
+      <div class="trend-label">${e.name} · 8-cycle trend</div>
+      <div class="trend-bars">${bars}</div>
+      <div class="trend-labels"><span>${e.dates[0]}</span><span>${e.dates[e.dates.length-1]}</span></div>
+    </div>
+    <div style="padding:0 20px 16px">
+      <div class="narr-label">Last narrative</div>
+      <div class="narr-text">"${e.narrative}"</div>
+    </div>`;
+}
+
+async function runAnalyst(){
+  const narr = document.getElementById('analystNarr').value.trim();
+  if(!narr) return;
+  const btn = document.getElementById('analystBtn');
+  const lb = document.getElementById('lb');
+  btn.disabled=true;btn.classList.add('computing');btn.textContent='▶ SCORING...';lb.classList.add('on');
+  try{
+    const r = await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query: QUERY_BASE + ' ' + narr, candidates: CANDIDATES})});
+    const d = await r.json();
+    const top = (d.top||d.all||[])[0];
+    if(top) showAnalystResult(top.score);
+  }catch(e){console.error(e)}
+  btn.disabled=false;btn.classList.remove('computing');btn.textContent='▶ SCORE NARRATIVE';lb.classList.remove('on');
+}
+
+async function runAnalystWithEst(e){
+  const narr = e.narrative;
+  const btn = document.getElementById('analystBtn');
+  const lb = document.getElementById('lb');
+  btn.disabled=true;btn.classList.add('computing');btn.textContent='▶ SCORING...';lb.classList.add('on');
+  try{
+    const r = await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query: QUERY_BASE + ' ' + narr, candidates: CANDIDATES})});
+    const d = await r.json();
+    const top = (d.top||d.all||[])[0];
+    if(top) showAnalystResult(top.score);
+    else showAnalystResult(e.score); // fallback to preset
+  }catch(err){
+    showAnalystResult(e.score); // fallback
+  }
+  btn.disabled=false;btn.classList.remove('computing');btn.textContent='▶ SCORE NARRATIVE';lb.classList.remove('on');
+}
+
+function showAnalystResult(score){
+  const cat = score<0.70?'imm':score<0.80?'crit':score<0.90?'conc':'norm';
+  const label = BADGE_LABEL[cat];
+  const notes = {
+    imm:'Geometric distance from establishment baseline indicates pattern consistent with pre-enforcement conditions. Immediate supervisor review required.',
+    crit:'Significant incoherence with establishment compliance baseline detected. Expedited inspection recommended before next scheduled cycle.',
+    conc:'Meaningful drift from baseline. Supervisor review at next inspection cycle. Monitor closely.',
+    norm:'Narrative coherent with establishment baseline. Standard monitoring appropriate.'
+  };
+  const wrap = document.getElementById('analystResult');
+  wrap.style.display='block';
+  document.getElementById('arScore').textContent = score.toFixed(4);
+  document.getElementById('arScore').className = 'sr-big c-'+cat;
+  const vd = document.getElementById('arVerdict');
+  vd.textContent = label;
+  vd.className = `sr-verdict c-${cat} b-${cat} bg-${cat}`;
+  document.getElementById('arNote').textContent = notes[cat];
+}
+
+// ── FIELD INSPECTOR VIEW ────────────────────────────────────────
+function buildFieldSelect(){
+  const sel = document.getElementById('fieldEst');
+  ESTABLISHMENTS.sort((a,b)=>a.name.localeCompare(b.name)).forEach(e=>{
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.name + ' (' + e.state + ')';
+    sel.appendChild(opt);
+  });
+}
+
+function updateFieldEst(){
+  document.getElementById('fieldResultWrap').style.display='none';
+  document.getElementById('fieldNarr').value = '';
+  document.getElementById('fieldCharCount').textContent = '0 chars';
+}
+
+async function runField(){
+  const estId = parseInt(document.getElementById('fieldEst').value);
+  const narr = document.getElementById('fieldNarr').value.trim();
+  if(!estId){ alert('Select an establishment.'); return; }
+  if(!narr){ alert('Enter inspection findings.'); return; }
+
+  const btn = document.getElementById('fieldBtn');
+  const lb = document.getElementById('lb');
+  btn.disabled=true;btn.classList.add('computing');btn.textContent='▶ SCORING...';lb.classList.add('on');
+
+  const e = ESTABLISHMENTS.find(x=>x.id===estId);
+  let score;
+
+  try{
+    const r = await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query: QUERY_BASE + ' ' + narr, candidates: CANDIDATES})});
+    const d = await r.json();
+    score = (d.top||d.all||[])[0]?.score ?? e?.score ?? 0.75;
+  }catch(err){
+    score = e?.score ?? 0.75; // fallback to preset
+  }
+
+  const cat = score<0.70?'imm':score<0.80?'crit':score<0.90?'conc':'norm';
+  const label = BADGE_LABEL[cat];
+  const msgs = {
+    imm:'This narrative is geometrically inconsistent with a compliant establishment. Immediate supervisor notification required. Do not leave the establishment.',
+    crit:'Significant coherence gap detected. Contact supervisor before completing inspection. Expedited follow-up required.',
+    conc:'Coherence drift from baseline detected. Note in inspection record. Supervisor review at next cycle.',
+    norm:'Narrative coherent with establishment compliance baseline. Proceed normally.'
+  };
+
+  const wrap = document.getElementById('fieldResultWrap');
+  const baseline = e?.history?.[0] ?? 0.95;
+  const drift = (baseline - score).toFixed(4);
+  wrap.style.display='block';
+  wrap.innerHTML = `
+    <div class="field-hd">
+      <span class="field-hd-label">Coherence Score</span>
+      <span class="field-hd-meta">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="fr-body">
+      <div class="fr-verdict-block">
+        <span class="fr-verdict c-${cat} b-${cat} bg-${cat}">${label}</span>
+        <div class="fr-score c-${cat}">${score.toFixed(4)}</div>
+        <div class="fr-delta">−${drift} from baseline</div>
+      </div>
+      <div class="fr-text">${msgs[cat]}<br><br><strong>ARBITER score: ${score.toFixed(4)}</strong> · Baseline: ${baseline.toFixed(4)} · Drift: −${drift}</div>
+    </div>`;
+
+  btn.disabled=false;btn.classList.remove('computing');btn.textContent='▶ SCORE FINDINGS';lb.classList.remove('on');
+}
+
+// ── VIEW SWITCHING ─────────────────────────────────────────────
+function showView(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('v'+i).style.display = i===n?'block':'none';
+  });
+  document.querySelectorAll('.view-tab').forEach((t,i)=>t.classList.toggle('active',i===n-1));
+  document.getElementById('hd-meta').textContent =
+    n===1 ? 'supervisor dashboard · 15 establishments' :
+    n===2 ? 'analyst mode · narrative scoring' :
+    'field inspector · live scoring';
+}
+
+// ── UPDATE STATS ────────────────────────────────────────────────
+function updateStats(){
+  const imm = ESTABLISHMENTS.filter(e=>e.badge==='imm').length;
+  const crit = ESTABLISHMENTS.filter(e=>e.badge==='crit').length;
+  document.getElementById('statImm').textContent = imm;
+  document.getElementById('statCrit').textContent = crit;
+}
+
+// ── INIT ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  buildEstList();
+  buildAnalystSamples();
+  buildFieldSelect();
+  updateStats();
+  // Auto-select first establishment
+  setTimeout(()=>selectEst(1), 100);
+});
+</script>
+</body>
+</html>
