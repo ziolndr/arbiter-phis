@@ -79,20 +79,19 @@ html,body{background:var(--white);color:var(--black);font-family:var(--sans);fon
 /* Establishment list */
 .est-list{border-right:2px solid var(--black);display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 280px)}
 .est-row{
-  display:grid;grid-template-columns:1fr 72px 90px;
-  align-items:center;
-  padding:10px 14px;
-  border-bottom:1px solid var(--black);
-  cursor:pointer;
-  transition:background .1s;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--black);
+  cursor:pointer;transition:background .1s;
 }
 .est-row:last-child{border-bottom:none}
 .est-row:hover{background:var(--off)}
 .est-row.selected{background:var(--off)}
+.est-info{flex:1;min-width:0}
 .est-name{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--black);margin-bottom:2px}
 .est-type{font-family:var(--mono);font-size:9px;color:var(--dim)}
-.est-score{font-family:var(--8bit);font-size:13px;text-align:right}
-.est-badge{font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;text-align:center;border:1px solid;white-space:nowrap}
+.est-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.est-score{font-family:var(--8bit);font-size:13px;white-space:nowrap}
+.est-badge{font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border:1px solid;white-space:nowrap}
 
 .badge-imm{color:var(--red);border-color:var(--red);background:var(--red-light)}
 .badge-crit{color:var(--amber);border-color:var(--amber);background:var(--amber-light)}
@@ -542,12 +541,14 @@ function buildEstList(){
   const sorted = [...ESTABLISHMENTS].sort((a,b)=>a.score-b.score);
   el.innerHTML = sorted.map(e=>`
     <div class="est-row" onclick="selectEst(${e.id})" id="row-${e.id}">
-      <div>
+      <div class="est-info">
         <div class="est-name">${e.name}</div>
         <div class="est-type">${e.type} · ${e.state}</div>
       </div>
-      <div class="est-score ${`score-${e.badge}`}">${e.score.toFixed(4)}</div>
-      <div class="est-badge badge-${e.badge}">${BADGE_LABEL[e.badge]}</div>
+      <div class="est-right">
+        <div class="est-score score-${e.badge}">${e.score.toFixed(4)}</div>
+        <div class="est-badge badge-${e.badge}">${BADGE_LABEL[e.badge]}</div>
+      </div>
     </div>`).join('');
 }
 
